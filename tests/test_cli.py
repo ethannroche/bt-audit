@@ -25,8 +25,7 @@ def test_cherry_picked_noise_fails(tmp_path, capsys):
 
 def test_real_edge_with_low_costs_passes_stat_checks(tmp_path, capsys):
     rng = np.random.default_rng(1)
-    # 6,000 periods: the deflated test is conservative, and at 2,000 periods this edge clears
-    # it only ~85% of the time (measured over 20 seeds). That is statistical power, not a bug.
+    # 6,000 periods keeps every check comfortably clear of its threshold for this seed
     x = rng.normal(0, 0.01, (6000, 10))
     x[:, 0] += 0.0012
     p = _csv(tmp_path, x, "trials.csv")

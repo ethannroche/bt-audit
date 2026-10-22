@@ -21,6 +21,9 @@ import pandas as pd
 def build(csv: str) -> tuple[pd.DataFrame, float]:
     d = pd.read_csv(csv, parse_dates=["Date"]).set_index("Date")
     d = d[(d.index >= "1900-01-01") & (d["SP500"] > 0)]
+    # the newest months carry 0.0 placeholders for dividends and rates until Shiller's data is
+    # filled in; treating them as real zeros would understate both the index and the cash leg
+    d = d[(d["Dividend"] > 0) & (d["Long Interest Rate"] > 0)]
     px = d["SP500"]
     total = px.pct_change() + (d["Dividend"] / 12.0) / px.shift(1)  # price + dividend yield
     cash = d["Long Interest Rate"] / 1200.0  # monthly cash proxy (long rate; flagged in README)

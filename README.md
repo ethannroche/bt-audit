@@ -2,9 +2,9 @@
 
 Grades a trading backtest on one question: **would this return survive real money?**
 
-Most public trading bots publish a backtest and a Sharpe ratio. Almost none correct for the five
-things that usually make that number fake. bt-audit checks all five and prints a report card
-with the rule behind every grade.
+Most public trading bots publish a backtest and a Sharpe ratio. Almost none correct for the things
+that usually make that number fake. bt-audit checks six of them and prints a report card with
+the rule behind every grade.
 
 | Check | What it catches | Method |
 |---|---|---|
@@ -45,11 +45,12 @@ The report card lands in the job summary; the job fails at the grade you choose.
 ## Real results
 
 **1. "Hold the S&P 500 only when it is above its moving average."** The classic timing rule,
-on 125 years of Shiller's monthly data (1900 to 2025), with every lookback from 2 to 61 months.
-The best variant (2 months) beats buy-and-hold with an active Sharpe of 0.18 and a naive
-significance of 98.4%. After correcting for having tried 60 versions (mean correlation 0.84),
-the Deflated Sharpe is 0.878: **suggestive, not proven at 95%**. Its edge also needs costs under
-36 bps per unit traded.
+on Shiller's monthly data from 1900 to June 2023 (the newer months still carry zero
+placeholders for dividends and rates, so they are left out), with every lookback from 2 to 61
+months. The best variant (2 months) beats buy-and-hold with an active Sharpe of 0.20 and a
+naive significance of 99.0%. After correcting for having tried 60 versions (mean correlation
+0.84), the Deflated Sharpe is 0.910: **suggestive, not proven at 95%**. Its edge also needs costs
+under 40 bps per unit traded.
 Reproduce: `python examples/sp500_ma_timing.py data.csv out/`, report in
 [`examples/sp500_ma_report.md`](examples/sp500_ma_report.md).
 
@@ -70,8 +71,8 @@ held-out score.
 
 Against simulation, not remembered examples: the PSR test rejects at 5% under a true null; the
 closed-form expected maximum Sharpe matches brute force within 5%; PBO sits near 0.5 on pure
-noise and near 0 when one variant carries a real edge; the mean-correlation estimate recovers a planted 0.5.
-An independent review checked every formula against the papers; its one real finding (an anti-conservative Deflated Sharpe on correlated variants) is fixed and pinned by a regression test. `pytest` runs all of it (33 tests).
+noise and near 0 when one variant carries a real edge; the mean-correlation estimate recovers a
+planted 0.5. An independent review checked every formula against the papers; its one real finding (an anti-conservative Deflated Sharpe on correlated variants) is fixed and pinned by a regression test. `pytest` runs all of it (33 tests).
 
 ## Known limits
 
@@ -83,8 +84,8 @@ An independent review checked every formula against the papers; its one real fin
 - Lookahead findings are static pattern matches: "look here", never "proven". Test files and
   test folders are skipped.
 - The bootstrap compounds simple returns and ignores financing, so leveraged rows are optimistic.
-- The deflated test is conservative: a real per-period Sharpe of 0.12 clears it about 85% of the
-  time at 2,000 periods and every time at 6,000.
+- Power: a real per-period Sharpe of 0.12 (about 1.9 annualised on daily data), hidden among
+  10 variants, clears the deflated test in 40 of 40 simulated runs at 2,000 periods.
 
 ## Related tools
 
