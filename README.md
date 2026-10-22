@@ -30,6 +30,18 @@ other variants you tried. Use `--equity` for an equity curve, `--active` for ret
 benchmark, `--periods-per-year 12` for monthly data, `--json` for machine-readable output. Exit code: 0 PASS, 1 WARN, 2 FAIL, so it
 drops into CI.
 
+## In CI (GitHub Action)
+
+```yaml
+- uses: ethannroche/bt-audit@main
+  with:
+    returns: results/returns.csv
+    turnover: "0.3"
+    fail-on: FAIL   # or WARN
+```
+
+The report card lands in the job summary; the job fails at the grade you choose.
+
 ## Real results
 
 **1. "Hold the S&P 500 only when it is above its moving average."** The classic timing rule,

@@ -1,0 +1,61 @@
+name: bt-audit
+description: Grade a trading backtest in CI (selection bias, overfitting, costs, sizing, lookahead) and post the report card to the job summary.
+branding:
+  icon: check-square
+  color: gray-dark
+inputs:
+  returns:
+    description: CSV of per-period returns (date column plus one or more strategy columns)
+    required: true
+  column:
+    description: strategy column to grade (default first numeric column)
+    required: false
+    default: ""
+  turnover:
+    description: average fraction of the book traded per period (enables the cost check)
+    required: false
+    default: ""
+  periods-per-year:
+    description: 252 for daily, 52 weekly, 12 monthly
+    required: false
+    default: "252"
+  active:
+    description: '"true" if returns are strategy minus benchmark (skips the sizing check)'
+    required: false
+    default: "false"
+  repo-path:
+    description: source tree to scan for lookahead (default the checked-out repo)
+    required: false
+    default: "."
+  fail-on:
+    description: lowest grade that fails the job, FAIL or WARN
+    required: false
+    default: FAIL
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-python@v5
+      with:
+        python-version: "3.12"
+    - shell: bash
+      run: pip install "${{ github.action_path }}"
+    - shell: bash
+      env:
+        RETURNS: ${{ inputs.returns }}
+        COLUMN: ${{ inputs.column }}
+        TURNOVER: ${{ inputs.turnover }}
+        PPY: ${{ inputs.periods-per-year }}
+        REPO_PATH: ${{ inputs.repo-path }}
+        FAIL_ON: ${{ inputs.fail-on }}
+        ACTIVE: ${{ inputs.active }}
+      run: |
+        args=("$RETURNS" --periods-per-year "$PPY" --repo "$REPO_PATH" -o bt-audit-report.md)
+        [ -n "$COLUMN" ] && args+=(--column "$COLUMN")
+        [ -n "$TURNOVER" ] && args+=(--turnover "$TURNOVER")
+        [ "$ACTIVE" = "true" ] && args+=(--active)
+        set +e
+        bt-audit "${args[@]}" > /dev/null
+        code=$?
+        set -e
+        cat bt-audit-report.md >> "$GITHUB_STEP_SUMMARY"
+        if [ "$code" -ge 2 ] || { [ "$FAIL_ON" = "WARN" ] && [ "$code" -ge 1 ]; }; then exit 1; fi
