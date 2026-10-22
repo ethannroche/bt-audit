@@ -45,7 +45,7 @@ Reproduce: `python examples/sp500_ma_timing.py data.csv out/`, report in
 `processed_full.bfill(axis="rows")` in FinRL's fundamental stock-trading example
 (`finrl/applications/stock_trading/fundamental_stock_trading.py`). Reading the code confirms it:
 quarterly ratios (EPS, book value, dividends) are backfilled onto every earlier calendar day, so
-the agent trades on each quarter's numbers before the quarter is reported.
+the agent trades on each quarter's numbers before the quarter is reported. Six public repos scanned and hand-checked: [`examples/SCAN-RESULTS.md`](examples/SCAN-RESULTS.md).
 
 **3. The lookahead scanner on a labelled set.** freqtrade-strategies keeps four strategies its
 maintainers marked as leaking the future. The scanner flags all four at medium or high
@@ -59,7 +59,7 @@ held-out score.
 Against simulation, not remembered examples: the PSR test rejects at 5% under a true null; the
 closed-form expected maximum Sharpe matches brute force within 5%; PBO sits near 0.5 on pure
 noise and near 0 when one variant carries a real edge; the mean-correlation estimate recovers a planted 0.5.
-An independent review checked every formula against the papers; its one real finding (an anti-conservative Deflated Sharpe on correlated variants) is fixed and pinned by a regression test. `pytest` runs all of it (28 tests).
+An independent review checked every formula against the papers; its one real finding (an anti-conservative Deflated Sharpe on correlated variants) is fixed and pinned by a regression test. `pytest` runs all of it (32 tests).
 
 ## Known limits
 
