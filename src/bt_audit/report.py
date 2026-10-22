@@ -208,3 +208,21 @@ def to_markdown(a: Audit, title: str = "Backtest audit") -> str:
             "This report measures how much evidence a backtest contains. It is not investment advice "
             "and says nothing about future returns."]
     return "\n".join(out) + "\n"
+
+
+def to_dict(a: Audit) -> dict:
+    """Machine-readable report (for CI and dashboards)."""
+    return {
+        "grade": a.grade,
+        "sharpe_annual": a.sharpe_annual,
+        "periods": a.periods,
+        "periods_per_year": a.periods_per_year,
+        "checks": [
+            {"name": c.name, "verdict": c.verdict, "result": c.result, "rule": c.rule, "detail": c.detail}
+            for c in a.checks
+        ],
+        "lookahead": [
+            {"file": f.file, "line": f.line, "rule": f.rule, "confidence": f.confidence, "reason": f.reason}
+            for f in a.lookahead
+        ],
+    }

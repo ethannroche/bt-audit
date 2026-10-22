@@ -14,7 +14,9 @@ import numpy as np
 import pandas as pd
 
 from .lookahead import scan
-from .report import run_audit, to_markdown
+import json
+
+from .report import run_audit, to_dict, to_markdown
 
 
 def _numeric(df: pd.DataFrame) -> pd.DataFrame:
@@ -43,6 +45,7 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--active", action="store_true", help="returns are active (strategy minus benchmark); skips sizing")
     ap.add_argument("--repo", help="source tree to scan for lookahead patterns")
     ap.add_argument("-o", "--output", help="write the markdown report here")
+    ap.add_argument("--json", action="store_true", help="print the report as JSON instead of markdown")
     a = ap.parse_args(argv)
 
     df = load(a.returns, a.equity)
@@ -62,7 +65,7 @@ def main(argv: list[str] | None = None) -> int:
     md = to_markdown(audit, title=f"Backtest audit: {Path(a.returns).name} [{col}]")
     if a.output:
         Path(a.output).write_text(md)
-    sys.stdout.write(md)
+    sys.stdout.write(json.dumps(to_dict(audit), indent=2) + "\n" if a.json else md)
     return {"PASS": 0, "WARN": 1, "FAIL": 2}[audit.grade]
 
 

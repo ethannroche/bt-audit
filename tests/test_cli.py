@@ -44,3 +44,14 @@ def test_equity_curve_input(tmp_path, capsys):
     p = _csv(tmp_path, eq[:, None], "equity.csv")
     main([str(p), "--equity"])
     assert "Headline Sharpe" in capsys.readouterr().out
+
+
+def test_json_output(tmp_path, capsys):
+    import json
+
+    x = np.random.default_rng(3).normal(0.0005, 0.01, (600, 3))
+    p = _csv(tmp_path, x, "t.csv")
+    main([str(p), "--json"])
+    d = json.loads(capsys.readouterr().out)
+    assert d["grade"] in {"PASS", "WARN", "FAIL"}
+    assert {c["name"] for c in d["checks"]} >= {"Sharpe significance (PSR)", "Overfitting (PBO, CSCV)"}
