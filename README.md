@@ -21,7 +21,7 @@ and nothing it prints is investment advice.
 ## Install and run
 
 ```bash
-pip install -e .
+pip install git+https://github.com/ethannroche/bt-audit   # not on PyPI yet
 bt-audit returns.csv --trials all_variants.csv --turnover 0.3 --repo ./strategy-src -o report.md
 ```
 
