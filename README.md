@@ -27,7 +27,7 @@ bt-audit returns.csv --trials all_variants.csv --turnover 0.3 --repo ./strategy-
 
 `returns.csv`: a date column plus per-period returns. Extra numeric columns are treated as the
 other variants you tried. Use `--equity` for an equity curve, `--active` for returns versus a
-benchmark, `--periods-per-year 12` for monthly data. Exit code: 0 PASS, 1 WARN, 2 FAIL, so it
+benchmark, `--periods-per-year 12` for monthly data, `--json` for machine-readable output. Exit code: 0 PASS, 1 WARN, 2 FAIL, so it
 drops into CI.
 
 ## Real results
@@ -59,7 +59,7 @@ held-out score.
 Against simulation, not remembered examples: the PSR test rejects at 5% under a true null; the
 closed-form expected maximum Sharpe matches brute force within 5%; PBO sits near 0.5 on pure
 noise and near 0 when one variant carries a real edge; the mean-correlation estimate recovers a planted 0.5.
-An independent review checked every formula against the papers; its one real finding (an anti-conservative Deflated Sharpe on correlated variants) is fixed and pinned by a regression test. `pytest` runs all of it (32 tests).
+An independent review checked every formula against the papers; its one real finding (an anti-conservative Deflated Sharpe on correlated variants) is fixed and pinned by a regression test. `pytest` runs all of it (33 tests).
 
 ## Known limits
 
