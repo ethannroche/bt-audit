@@ -130,6 +130,16 @@ def _iter_sources(root: Path):
             yield p, [ln.rstrip("\n") for ln in lines]
 
 
+# A groupby on the date axis means the statistic is taken ACROSS assets at one instant
+# (cross-sectional), which uses no future data.
+_CROSS_SECTIONAL = re.compile(r"groupby\([^)]*['\"](?:date|datetime|time|timestamp|day)['\"]|level\s*=\s*['\"]?(?:date|datetime|0)")
+_NORMALISING_RULES = {"full-sample-zscore", "full-sample-minmax", "full-sample-fit"}
+# Reporting, plotting and analysis code describes results after the fact; a leak there does not
+# reach a trading decision. Hits are kept but drop one confidence level.
+_REPORTING_PATH = re.compile(r"(?:^|/)(?:report|reports|plot|plots|plotting|viz|visuali[sz]ation|analysis\w*)(?:/|\.py$|_)", re.I)
+_DOWN = {"high": "medium", "medium": "low", "low": "low"}
+
+
 def scan(root: str | Path) -> list[Finding]:
     root = Path(root)
     out: list[Finding] = []
@@ -138,14 +148,18 @@ def scan(root: str | Path) -> list[Finding]:
             code = raw.split("#", 1)[0]
             if not code.strip():
                 continue
+            rel = str(path.relative_to(root))
             for rule in RULES:
                 if rule.pattern.search(code):
+                    if rule.id in _NORMALISING_RULES and _CROSS_SECTIONAL.search(code):
+                        continue
+                    conf = _DOWN[rule.confidence] if _REPORTING_PATH.search(rel) else rule.confidence
                     out.append(
                         Finding(
-                            file=str(path.relative_to(root)),
+                            file=rel,
                             line=no,
                             rule=rule.id,
-                            confidence=rule.confidence,
+                            confidence=conf,
                             reason=rule.reason,
                             code=raw.strip()[:160],
                         )

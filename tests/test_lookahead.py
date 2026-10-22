@@ -79,3 +79,14 @@ def test_skips_test_files(tmp_path):
     (tmp_path / "tests").mkdir()
     _write(tmp_path / "tests", "helpers.py", "df = df.bfill()")
     assert scan(tmp_path) == []
+
+
+def test_cross_sectional_normalisation_is_not_flagged(tmp_path):
+    _write(tmp_path, "m.py", 'r = r.groupby("datetime").apply(lambda df: (df - df.mean()) / df.std())')
+    assert scan(tmp_path) == []
+
+
+def test_reporting_code_is_downgraded(tmp_path):
+    (tmp_path / "report").mkdir()
+    _write(tmp_path / "report", "charts.py", "b = (t.max() - t.min()) / 20")
+    assert [f.confidence for f in scan(tmp_path)] == ["medium"]
