@@ -74,6 +74,17 @@ An independent review checked every formula against the papers; its one real fin
 - The deflated test is conservative: a real per-period Sharpe of 0.12 clears it about 85% of the
   time at 2,000 periods and every time at 6,000.
 
+## Related tools
+
+- **overfit-gauntlet** (MIT, July 2026): PSR, DSR, permutation and bootstrap tests, walk-forward
+  and purged k-fold, cost stress, and an AST lookahead linter. The closest neighbour. bt-audit
+  adds PBO via CSCV, a correlation-aware Deflated Sharpe with a tested false-pass rate, bootstrap
+  drawdown and ruin by leverage, and published evidence (a labelled benchmark and hand-checked
+  scans of public repos). Not compared head to head yet.
+- **backtest-reality-check** (MIT, MCP server): deflated Sharpe, noise Sharpe, track-record
+  length and fill realism, for use inside an AI assistant. No overfitting or lookahead checks.
+- **pypbo**: PBO and related statistics as a library, without a report or a code scan.
+
 ## References
 
 - Bailey, D. H. and Lopez de Prado, M. (2012). The Sharpe Ratio Efficient Frontier. *Journal of Risk* 15(2).
