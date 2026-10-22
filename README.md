@@ -83,7 +83,7 @@ An independent review checked every formula against the papers; its one real fin
   scans of public repos). Not compared head to head yet.
 - **backtest-reality-check** (MIT, MCP server): deflated Sharpe, noise Sharpe, track-record
   length and fill realism, for use inside an AI assistant. No overfitting or lookahead checks.
-- **pypbo**: PBO and related statistics as a library, without a report or a code scan.
+- **pypbo**: a Python library for PBO and related statistics.
 
 ## References
 
