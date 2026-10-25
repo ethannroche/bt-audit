@@ -7,6 +7,18 @@ inputs:
   returns:
     description: CSV of per-period returns (date column plus one or more strategy columns)
     required: true
+  trials:
+    description: CSV of every variant's returns (T x N); enables PBO and the Deflated Sharpe. Extra columns in `returns` work too
+    required: false
+    default: ""
+  n-trials:
+    description: number of variants tried, if no trials CSV
+    required: false
+    default: ""
+  equity:
+    description: '"true" if the CSV holds equity or price levels instead of returns'
+    required: false
+    default: "false"
   column:
     description: strategy column to grade (default first numeric column)
     required: false
@@ -28,9 +40,13 @@ inputs:
     required: false
     default: "."
   fail-on:
-    description: lowest grade that fails the job, FAIL or WARN
+    description: lowest grade that fails the job, FAIL or WARN; NONE reports without failing
     required: false
     default: FAIL
+outputs:
+  grade-code:
+    description: bt-audit exit code, 0 PASS, 1 WARN, 2 FAIL
+    value: ${{ steps.audit.outputs.grade-code }}
 runs:
   using: composite
   steps:
@@ -39,10 +55,14 @@ runs:
         python-version: "3.12"
     - shell: bash
       run: pip install "${{ github.action_path }}"
-    - shell: bash
+    - id: audit
+      shell: bash
       env:
         RETURNS: ${{ inputs.returns }}
         COLUMN: ${{ inputs.column }}
+        TRIALS: ${{ inputs.trials }}
+        NTRIALS: ${{ inputs.n-trials }}
+        EQUITY: ${{ inputs.equity }}
         TURNOVER: ${{ inputs.turnover }}
         PPY: ${{ inputs.periods-per-year }}
         REPO_PATH: ${{ inputs.repo-path }}
@@ -52,10 +72,19 @@ runs:
         args=("$RETURNS" --periods-per-year "$PPY" --repo "$REPO_PATH" -o bt-audit-report.md)
         [ -n "$COLUMN" ] && args+=(--column "$COLUMN")
         [ -n "$TURNOVER" ] && args+=(--turnover "$TURNOVER")
+        [ -n "$TRIALS" ] && args+=(--trials "$TRIALS")
+        [ -n "$NTRIALS" ] && args+=(--n-trials "$NTRIALS")
+        [ "$EQUITY" = "true" ] && args+=(--equity)
         [ "$ACTIVE" = "true" ] && args+=(--active)
         set +e
-        bt-audit "${args[@]}" > /dev/null
+        bt-audit "${args[@]}"
         code=$?
         set -e
+        if [ ! -f bt-audit-report.md ]; then
+          echo "bt-audit did not produce a report (exit $code); see the log above" >&2
+          exit 1
+        fi
         cat bt-audit-report.md >> "$GITHUB_STEP_SUMMARY"
+        echo "grade-code=$code" >> "$GITHUB_OUTPUT"
+        [ "$FAIL_ON" = "NONE" ] && exit 0
         if [ "$code" -ge 2 ] || { [ "$FAIL_ON" = "WARN" ] && [ "$code" -ge 1 ]; }; then exit 1; fi

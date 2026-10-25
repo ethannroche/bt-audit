@@ -34,13 +34,19 @@ drops into CI.
 
 ```yaml
 - uses: ethannroche/bt-audit@main
+  id: audit
   with:
     returns: results/returns.csv
+    trials: results/all_variants.csv   # enables the Deflated Sharpe and PBO
     turnover: "0.3"
-    fail-on: FAIL   # or WARN
+    fail-on: FAIL   # or WARN, or NONE to report only
 ```
 
-The report card lands in the job summary; the job fails at the grade you choose.
+The report card lands in the job summary; the job fails at the grade you choose, and
+`steps.audit.outputs.grade-code` carries 0/1/2. Other inputs: `n-trials` (count of variants when
+you have no trials CSV), `equity`, `active`, `column`, `periods-per-year`, `repo-path`. The
+repo's own CI runs the action on 20 noise variants: the cherry-picked one passes the naive
+Sharpe test (PSR 0.976) and fails the Deflated Sharpe (0.533).
 
 ## Real results
 
@@ -72,7 +78,7 @@ held-out score.
 Against simulation, not remembered examples: the PSR test rejects at 5% under a true null; the
 closed-form expected maximum Sharpe matches brute force within 5%; PBO sits near 0.5 on pure
 noise and near 0 when one variant carries a real edge; the mean-correlation estimate recovers a
-planted 0.5. An independent review checked every formula against the papers; its one real finding (an anti-conservative Deflated Sharpe on correlated variants) is fixed and pinned by a regression test. `pytest` runs all of it (33 tests).
+planted 0.5. An independent review checked every formula against the papers; its one real finding (an anti-conservative Deflated Sharpe on correlated variants) is fixed and pinned by a regression test. `pytest` runs all of it (33 tests), and CI also runs the GitHub Action end to end.
 
 ## Known limits
 

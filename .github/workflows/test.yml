@@ -13,3 +13,37 @@ jobs:
           python-version: ${{ matrix.python }}
       - run: pip install -e ".[dev]"
       - run: pytest -q
+
+  action:
+    # Runs the published composite action against this checkout, the way a user's workflow would.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Make a noise backtest with 20 variants
+        run: |
+          pip install numpy pandas
+          python - <<'PY'
+          import numpy as np, pandas as pd
+          rng = np.random.default_rng(0)
+          d = pd.bdate_range("2015-01-01", periods=1500)
+          r = pd.DataFrame(rng.normal(0, 0.01, (1500, 20)), index=d, columns=[f"v{i}" for i in range(20)])
+          r.index.name = "date"
+          best = r.mean().div(r.std()).idxmax()
+          r[[best]].to_csv("returns.csv")
+          r.to_csv("trials.csv")
+          PY
+      - id: audit
+        uses: ./
+        with:
+          fail-on: NONE
+          returns: returns.csv
+          trials: trials.csv
+          turnover: "0.3"
+          repo-path: src
+      - name: Cherry-picked noise must not pass
+        run: |
+          echo "grade-code=${{ steps.audit.outputs.grade-code }}"
+          test "${{ steps.audit.outputs.grade-code }}" -ge 1
