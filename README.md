@@ -132,7 +132,7 @@ also runs the GitHub Action end to end.
   and purged k-fold, cost stress, and an AST lookahead linter. The closest neighbour. bt-audit
   adds PBO via CSCV, a correlation-aware Deflated Sharpe with a tested false-pass rate, bootstrap
   drawdown and ruin by leverage, and published evidence (a labelled benchmark and hand-checked
-  scans of public repos). A head-to-head script is ready (`bash benchmarks/run_vs_overfit_gauntlet.sh`: cherry-picked noise, a planted edge, and both linters on the labelled freqtrade set); results not published yet.
+  scans of public repos). Compared head to head in [`examples/VS-OVERFIT-GAUNTLET.md`](examples/VS-OVERFIT-GAUNTLET.md): on cherry-picked noise and a planted edge the two tie at their top grade (neither validates noise, both validate the edge); on freqtrade's four labelled leaky strategies bt-audit flags 4 and overfit-gauntlet 0, with the caveat that bt-audit's rule was written after seeing that set. Rerun with `bash benchmarks/run_vs_overfit_gauntlet.sh`.
 - **backtest-reality-check** (MIT, MCP server): deflated Sharpe, noise Sharpe, track-record
   length and fill realism, for use inside an AI assistant. No overfitting or lookahead checks.
 - **pypbo**: a Python library for PBO and related statistics.
