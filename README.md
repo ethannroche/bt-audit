@@ -83,12 +83,28 @@ noise and near 0 when one variant carries a real edge; the mean-correlation esti
 planted 0.5. An independent review checked every formula against the papers; its one real finding (an anti-conservative Deflated Sharpe on correlated variants) is fixed and pinned by a regression test.
 
 The SPA test is checked the same way, with 300 bootstrap resamples per p-value in tests (the
-report uses 2,000). On 20 zero-edge variants (T = 1,000, 400 runs) it rejects at 5% in 5.5% of
-runs when the variants are independent and 4.3% when they are correlated at 0.5. One variant with a
-per-period Sharpe of 0.12 among 10 (T = 2,000) is found in 60 of 60 runs. With one modest winner
-among 29 clearly losing variants, SPA_c rejects in 82% of runs and White's Reality Check in 48%,
-which is the failure SPA was designed to fix. Removing the studentization, the recentring, or the
-SPA_c trimming each makes a test fail. `pytest` runs all of it (43 tests, about 70 seconds), and CI
+report uses 2,000). Its PASS cut is p <= 0.025, not 0.05, because the test runs hot in finite
+samples. Simulated on 20 zero-edge variants at T = 1,000 (600 runs each), the share graded PASS is:
+
+| Returns | p <= 0.05 | p <= 0.025 (the PASS cut) |
+|---|---|---|
+| independent | 7.8% | 3.5% |
+| pairwise correlation 0.5 | 7.7% | 3.3% |
+| fat-tailed (t, 4 df) | 8.0% | 4.8% |
+| AR(1) 0.2 | 9.0% | 5.2% |
+| AR(1) 0.5 | 13.5% | 7.3% |
+| independent, T = 250 | 8.3% | 5.3% |
+| AR(1) 0.2, T = 250 | 12.3% | 7.3% |
+
+One variant with a per-period Sharpe of 0.12 among 10 (T = 2,000) still passes in 60 of 60 runs.
+A weaker edge is mostly missed: per-period Sharpe 0.06 (about 1.0 annualised on daily data) among 20
+at T = 1,000 passes in 12.5% of 200 runs at the 0.025 cut (24.5% at 0.05). The stricter cut buys a
+lower false-pass rate with that power. With one modest winner among 29 clearly losing
+variants, SPA_c rejects far more often than White's Reality Check, which is the failure SPA was
+designed to fix. Independent review also found that twenty variants that all lose money got
+p = 0.0 and a PASS (a strict inequality in the p-value); ties now count against rejection and a
+regression test pins it. Removing the studentization, the recentring, the SPA_c trimming or the
+tie rule each makes a test fail. `pytest` runs all of it (48 tests, about 70 seconds), and CI
 also runs the GitHub Action end to end.
 
 ## Known limits
@@ -100,8 +116,10 @@ also runs the GitHub Action end to end.
   correlations 0, 0.5 and 0.9 (tested). This deviates from the paper and the report says so.
 - Lookahead findings are static pattern matches: "look here", never "proven". Test files and
   test folders are skipped.
-- SPA tests whether any variant beats a zero return. A low p-value does not say the audited
-  column is the variant that does. Its mean block length is the cube root of the sample, a fixed
+- SPA on raw returns tests whether any variant beats a zero return (cash), which any long-only
+  drift does; pass `--active` returns to test against a benchmark. The report says which. A low
+  p-value does not say the audited column is the variant that does. Variants missing more than
+  10% of periods are left out, and the report says how many. Its mean block length is the cube root of the sample, a fixed
   rule; the square-root rule used for sizing made it reject about 10% of the time at a 5% level on
   independent noise.
 - The bootstrap compounds simple returns and ignores financing, so leveraged rows are optimistic.

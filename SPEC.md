@@ -50,7 +50,9 @@ Each check gets PASS / WARN / FAIL. Thresholds are stated in the report next to 
 
 - PSR >= 0.95 PASS, 0.80 to 0.95 WARN, else FAIL.
 - DSR (needs N) same thresholds as PSR.
-- SPA (needs a trials matrix with N >= 2): SPA_c p <= 0.05 PASS, <= 0.20 WARN, else FAIL.
+- SPA (needs a trials matrix with N >= 2): SPA_c p <= 0.025 PASS, <= 0.20 WARN, else FAIL. The PASS cut is
+  0.025 because simulated false-pass rates at 0.05 ran 7 to 13% on zero-edge variants; at 0.025 they are
+  3.5 to 5.3% (iid, correlated, fat-tailed, AR 0.2) and about 7% at AR 0.5 or T = 250.
 - PBO <= 0.25 PASS, 0.25 to 0.50 WARN, > 0.50 FAIL.
 - Breakeven cost >= 20 bps PASS, 5 to 20 WARN, < 5 FAIL.
 - P(drawdown >= 50%) at 1x <= 5% PASS, 5 to 20% WARN, > 20% FAIL.
@@ -70,5 +72,5 @@ the audit exists to catch.
    and the cherry-picked winner gets an overall FAIL.
 2. A planted true edge (per-period SR 0.15, T=1,000, one of N=50 trials): PBO under 0.1 on
    average over seeds.
-3. Formulas behave correctly under simulated nulls (PSR size 5%, expected max Sharpe within 5% of brute force, Deflated Sharpe false-pass rate <= 5% at correlation 0, 0.5, 0.9, SPA rejection rate <= 8% at 5% on 20 zero-edge variants at correlation 0 and 0.5, SPA power >= 90% for one per-period Sharpe 0.12 among 10 at T = 2,000, SPA_c p-value <= the Reality Check's when most variants are clearly losing).
+3. Formulas behave correctly under simulated nulls (PSR size 5%, expected max Sharpe within 5% of brute force, Deflated Sharpe false-pass rate <= 5% at correlation 0, 0.5, 0.9, SPA false-pass rate <= 7.5% at the 0.025 cut on 20 zero-edge variants at correlation 0, 0.5 and AR(1) 0.2, p = 1 when no variant has a positive mean, SPA power >= 90% for one per-period Sharpe 0.12 among 10 at T = 2,000, SPA_c p-value <= the Reality Check's when most variants are clearly losing).
 4. Runs end to end on real data (125 years of S&P 500 timing variants) and real code (lookahead scan of public trading repos, with a labelled benchmark).

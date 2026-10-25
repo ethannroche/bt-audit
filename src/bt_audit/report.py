@@ -152,9 +152,10 @@ def run_audit(
             checks.append(
                 Check(
                     "Selection bias (Hansen SPA)",
-                    _band(s.p_consistent, 0.05, 0.20, higher_is_better=False),
-                    f"p = {s.p_consistent:.3f} for 'none of the {s.n_variants} variants beats a zero return'",
-                    "PASS p <= 0.05, WARN p <= 0.20 (SPA_c p-value)",
+                    _band(s.p_consistent, SPA_PASS, 0.20, higher_is_better=False),
+                    f"p = {s.p_consistent:.3f} for 'none of the {s.n_variants} variants beats "
+                    + ("the benchmark'" if active else "a zero return (cash, not a benchmark)'"),
+                    f"PASS p <= {SPA_PASS}, WARN p <= 0.20 (SPA_c p-value; PASS cut calibrated by simulation)",
                     [
                         "Null: no variant has a positive expected return. Loss differential per period "
                         "d_k,t = r_k,t (the benchmark is a zero return and loss is the negative return); "
@@ -167,7 +168,16 @@ def run_audit(
                         f"(cube root of the sample; a fixed rule, not tuned), seed {SPA_SEED}.",
                         "A rejection says at least one variant beats zero after the search. It does not "
                         "say the audited column is that variant.",
+                        *([] if active else ["Raw returns: any long-only drift beats a zero return, so this "
+                                             "says little against a benchmark. Pass active returns (--active) "
+                                             "to test against one."]),
                         *([note] if note else []),
+                        *([f"{s.n_rows_dropped} rows with a missing value in a kept variant were dropped; "
+                           f"{s.n_cols_dropped} variants missing more than 10% of periods were left out."]
+                          if (s.n_rows_dropped or s.n_cols_dropped) else []),
+                        f"Calibration: the {SPA_PASS} PASS cut keeps the simulated false-pass rate at 3.5 to 5.3% "
+                        "on 20 zero-edge variants (iid, correlated, fat-tailed, AR(1) 0.2; T = 1,000). It is "
+                        "about 7% with strong autocorrelation (AR 0.5) or short samples (T = 250).",
                         "Method: Hansen (2005), A Test for Superior Predictive Ability, JBES 23(4).",
                     ],
                 )
@@ -238,6 +248,7 @@ def run_audit(
 
 
 SPA_BOOT = 2000
+SPA_PASS = 0.025
 SPA_SEED = 7
 
 

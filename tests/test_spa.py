@@ -9,26 +9,62 @@ import numpy as np
 import pytest
 
 from bt_audit import spa as spa_mod
+from bt_audit.report import SPA_PASS
 from bt_audit.spa import long_run_variance, spa
 
 N_BOOT = 300
 
 
-def _null_rejection_rate(rho, runs=400, t=1000, n=20, seed=123):
+def _null_rejection_rate(kind, runs=400, t=1000, n=20, seed=123):
+    """Share of zero-edge runs that the report would grade PASS (SPA_c p <= SPA_PASS)."""
     rng = np.random.default_rng(seed)
     rej = 0
     for s in range(runs):
-        common = rng.normal(0, 0.01, (t, 1))
-        x = np.sqrt(rho) * common + np.sqrt(1 - rho) * rng.normal(0, 0.01, (t, n))
-        rej += spa(x, n_boot=N_BOOT, seed=s).p_consistent <= 0.05
+        if kind == "ar0.2":
+            e = rng.normal(0, 0.01, (t, n))
+            x = np.empty_like(e)
+            x[0] = e[0]
+            for i in range(1, t):
+                x[i] = 0.2 * x[i - 1] + e[i]
+        else:
+            rho = float(kind)
+            common = rng.normal(0, 0.01, (t, 1))
+            x = np.sqrt(rho) * common + np.sqrt(1 - rho) * rng.normal(0, 0.01, (t, n))
+        rej += spa(x, n_boot=N_BOOT, seed=s).p_consistent <= SPA_PASS
     return rej / runs
 
 
-@pytest.mark.parametrize("rho", [0.0, 0.5])
-def test_size_under_zero_edge(rho):
-    """20 zero-edge variants, iid and with pairwise correlation 0.5: SPA_c rejects at 5% no more
-    than about 8% of the time (400 runs, so one standard error is about 1.1 points)."""
-    assert _null_rejection_rate(rho) <= 0.08
+@pytest.mark.parametrize("kind", ["0.0", "0.5", "ar0.2"])
+def test_false_pass_rate_under_zero_edge(kind):
+    """20 zero-edge variants (iid, pairwise correlation 0.5, AR(1) 0.2): the report's PASS cut is hit
+    no more than 7.5% of the time (400 runs, one standard error about 1.1 points). At p <= 0.05
+    instead, independent review measured 7 to 13% here, which is why the cut is 0.025."""
+    assert _null_rejection_rate(kind) <= 0.075
+
+
+def test_all_losing_variants_never_pass():
+    """Regression: T_SPA is 0 when no variant has a positive mean. With a strict '>' in the p-value,
+    SPA_c returned p = 0.0 and graded twenty losing strategies PASS."""
+    rng = np.random.default_rng(1)
+    r = spa(rng.normal(-0.002, 0.01, (1000, 20)), n_boot=N_BOOT, seed=0)
+    assert r.statistic == 0.0
+    assert r.p_consistent == r.p_lower == r.p_upper == r.p_reality_check == 1.0
+
+
+def test_late_starting_variant_does_not_cut_the_sample():
+    rng = np.random.default_rng(4)
+    x = rng.normal(0, 0.01, (1000, 5))
+    x[:600, 2] = np.nan  # starts 60% of the way in
+    x[10, 0] = np.nan  # one stray gap in a kept variant
+    r = spa(x, n_boot=N_BOOT, seed=0)
+    assert r.n_cols_dropped == 1 and r.n_rows_dropped == 1 and r.n_periods == 999 and r.n_variants == 4
+
+
+def test_all_nan_column_is_left_out_not_fatal():
+    x = np.random.default_rng(6).normal(0, 0.01, (500, 4))
+    x[:, 1] = np.nan
+    r = spa(x, n_boot=N_BOOT, seed=0)
+    assert r.n_variants == 3 and r.best_index != 1
 
 
 def test_power_one_real_edge_among_ten():
@@ -38,7 +74,7 @@ def test_power_one_real_edge_among_ten():
     for s in range(runs):
         x = rng.normal(0, 0.01, (2000, 10))
         x[:, 3] += 0.0012
-        hits += spa(x, n_boot=N_BOOT, seed=s).p_consistent <= 0.05
+        hits += spa(x, n_boot=N_BOOT, seed=s).p_consistent <= SPA_PASS
     assert hits / runs >= 0.90
 
 
@@ -95,6 +131,7 @@ def test_report_includes_spa_and_it_sets_the_grade():
     c = next(c for c in a.checks if c.name == "Selection bias (Hansen SPA)")
     assert c.verdict in {"WARN", "FAIL"}
     assert "d_k,t = r_k,t" in " ".join(c.detail)
+    assert "cash, not a benchmark" in c.result
     d = to_dict(a)
     assert 0.0 <= d["spa"]["p_consistent"] <= 1.0
     assert d["spa"]["n_variants"] == 20  # the audited column was found among the trials, not added
@@ -110,3 +147,13 @@ def test_spa_skips_without_a_matrix():
 
 def test_spa_module_cites_hansen():
     assert "Hansen, P. R. (2005)" in spa_mod.__doc__
+
+
+def test_raw_drift_is_labelled_cash_not_benchmark():
+    from bt_audit.report import run_audit
+
+    x = np.random.default_rng(8).normal(0.0006, 0.01, (1000, 5))
+    c = next(c for c in run_audit(x[:, 0], x).checks if c.name == "Selection bias (Hansen SPA)")
+    assert "cash, not a benchmark" in c.result and "--active" in " ".join(c.detail)
+    c = next(c for c in run_audit(x[:, 0], x, active=True).checks if c.name == "Selection bias (Hansen SPA)")
+    assert "beats the benchmark" in c.result

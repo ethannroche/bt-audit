@@ -34,13 +34,17 @@ variant, which keeps their correlation), and recentre each variant's bootstrap m
     g_c(x) = x * 1{x >= -sqrt(omega^2 / n * 2 log log n)}    -> SPA_c (consistent, the headline)
     g_u(x) = x                                               -> SPA_u (conservative, upper bound)
 
-    T*_b = max(0, max_k sqrt(n) (dbar*_{k,b} - g(dbar_k)) / omega_k),  p = mean(T*_b > T_SPA).
+    T*_b = max(0, max_k sqrt(n) (dbar*_{k,b} - g(dbar_k)) / omega_k),  p = mean(T*_b >= T_SPA).
+
+Ties count against rejection. T_SPA is 0 whenever no variant has a positive mean, and SPA_c's
+bootstrap is then mostly 0 too; with a strict '>' the p-value would be 0 and twenty losing
+strategies would 'beat' a zero return. With '>=' that case gives p = 1, as it should.
 
 SPA_c drops variants that are clearly worse than the benchmark from the null distribution,
 which is why a pile of bad variants cannot hide a good one. White's Reality Check is the
 non-studentized, fully recentred version:
 
-    V = max_k sqrt(n) dbar_k,   V*_b = max_k sqrt(n) (dbar*_{k,b} - dbar_k),  p = mean(V*_b > V).
+    V = max_k sqrt(n) dbar_k,   V*_b = max_k sqrt(n) (dbar*_{k,b} - dbar_k),  p = mean(V*_b >= V).
 """
 
 from __future__ import annotations
@@ -67,6 +71,8 @@ class SPAResult:
     n_boot: int
     mean_block: float
     n_dropped_by_consistent: int  # variants SPA_c treats as clearly worse than the benchmark
+    n_rows_dropped: int = 0  # periods removed because a kept variant had no value
+    n_cols_dropped: int = 0  # variants left out for missing more than 10% of periods
 
 
 def _autocov(x: np.ndarray) -> np.ndarray:
@@ -102,14 +108,25 @@ def spa(
     d = np.asarray(returns, dtype=float)
     if d.ndim == 1:
         d = d[:, None]
-    d = d[np.all(np.isfinite(d), axis=1)]
+    # A variant that starts late must not cut the sample for all of them: leave out columns that
+    # miss more than 10% of periods, then drop the remaining incomplete rows, and report both.
+    fin = np.isfinite(d)
+    good_cols = fin.mean(axis=0) >= 0.9
+    n_cols_dropped = int((~good_cols).sum())
+    if not good_cols.any():
+        raise ValueError("every variant is missing more than 10% of periods")
+    orig_cols = np.flatnonzero(good_cols)
+    d = d[:, good_cols]
+    rows = np.all(np.isfinite(d), axis=1)
+    n_rows_dropped = int((~rows).sum())
+    d = d[rows]
     n, k = d.shape
     if n < 10:
         raise ValueError(f"need at least 10 complete rows, got {n}")
     keep = d.std(axis=0) > 0
     if not keep.any():
         raise ValueError("every variant has zero variance")
-    cols = np.flatnonzero(keep)
+    cols = orig_cols[np.flatnonzero(keep)]
     d = d[:, keep]
     if mean_block is None:
         # n^(1/3) is the usual rate for block bootstraps of a mean. sqrt(n), the sizing rule, made the
@@ -141,8 +158,8 @@ def spa(
         mstar = counts @ d / n  # b x k
         for j, g in enumerate((g_l, g_c, g_u)):
             ts = np.maximum((rn * (mstar - g) / omega).max(axis=1), 0.0)
-            hits[j] += np.sum(ts > t_spa)
-        hits[3] += np.sum((rn * (mstar - dbar)).max(axis=1) > v_rc)
+            hits[j] += np.sum(ts >= t_spa)
+        hits[3] += np.sum((rn * (mstar - dbar)).max(axis=1) >= v_rc)
         done += b
     p = hits / n_boot
     best = int(tstat.argmax())
@@ -159,4 +176,6 @@ def spa(
         n_boot=int(n_boot),
         mean_block=float(mean_block),
         n_dropped_by_consistent=int(np.sum(dbar < -thresh)),
+        n_rows_dropped=n_rows_dropped,
+        n_cols_dropped=n_cols_dropped,
     )
