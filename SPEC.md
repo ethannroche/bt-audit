@@ -52,7 +52,7 @@ Each check gets PASS / WARN / FAIL. Thresholds are stated in the report next to 
 - DSR (needs N) same thresholds as PSR.
 - SPA (needs a trials matrix with N >= 2): SPA_c p <= 0.025 PASS, <= 0.20 WARN, else FAIL. The PASS cut is
   0.025 because simulated false-pass rates at 0.05 ran 7 to 13% on zero-edge variants; at 0.025 they are
-  3.5 to 5.3% (iid, correlated, fat-tailed, AR 0.2) and about 7% at AR 0.5 or T = 250.
+  3.3 to 5.2% (iid, correlated, fat-tailed, AR 0.2) and about 7% at AR 0.5 or T = 250.
 - PBO <= 0.25 PASS, 0.25 to 0.50 WARN, > 0.50 FAIL.
 - Breakeven cost >= 20 bps PASS, 5 to 20 WARN, < 5 FAIL.
 - P(drawdown >= 50%) at 1x <= 5% PASS, 5 to 20% WARN, > 20% FAIL.

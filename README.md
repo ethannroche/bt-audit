@@ -104,7 +104,7 @@ variants, SPA_c rejects far more often than White's Reality Check, which is the 
 designed to fix. Independent review also found that twenty variants that all lose money got
 p = 0.0 and a PASS (a strict inequality in the p-value); ties now count against rejection and a
 regression test pins it. Removing the studentization, the recentring, the SPA_c trimming or the
-tie rule each makes a test fail. `pytest` runs all of it (48 tests, about 70 seconds), and CI
+tie rule each makes a test fail. `pytest` runs all of it (49 tests, about 70 seconds), and CI
 also runs the GitHub Action end to end.
 
 ## Known limits

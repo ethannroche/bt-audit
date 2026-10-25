@@ -157,3 +157,15 @@ def test_raw_drift_is_labelled_cash_not_benchmark():
     assert "cash, not a benchmark" in c.result and "--active" in " ".join(c.detail)
     c = next(c for c in run_audit(x[:, 0], x, active=True).checks if c.name == "Selection bias (Hansen SPA)")
     assert "beats the benchmark" in c.result
+
+
+def test_audited_series_left_out_is_said_and_counts_reach_json():
+    from bt_audit.report import run_audit, to_dict
+
+    x = np.random.default_rng(12).normal(0, 0.01, (800, 6))
+    x[:200, 0] = np.nan
+    a = run_audit(x[:, 0], x)
+    c = next(c for c in a.checks if c.name == "Selection bias (Hansen SPA)")
+    assert "SPA left it out" in " ".join(c.detail)
+    d = to_dict(a)["spa"]
+    assert d["n_cols_dropped"] == 1 and d["n_rows_dropped"] == 0

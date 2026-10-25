@@ -148,6 +148,7 @@ def run_audit(
                 "p_reality_check": s.p_reality_check, "statistic": s.statistic,
                 "n_variants": s.n_variants, "n_periods": s.n_periods, "n_boot": s.n_boot,
                 "mean_block": s.mean_block, "seed": SPA_SEED,
+                "n_rows_dropped": s.n_rows_dropped, "n_cols_dropped": s.n_cols_dropped,
             }
             checks.append(
                 Check(
@@ -172,10 +173,13 @@ def run_audit(
                                              "says little against a benchmark. Pass active returns (--active) "
                                              "to test against one."]),
                         *([note] if note else []),
+                        *(["The audited series misses more than 10% of periods, so SPA left it out and "
+                           "tested only the other variants."]
+                          if np.mean(np.isfinite(np.asarray(returns, dtype=float))) < 0.9 else []),
                         *([f"{s.n_rows_dropped} rows with a missing value in a kept variant were dropped; "
                            f"{s.n_cols_dropped} variants missing more than 10% of periods were left out."]
                           if (s.n_rows_dropped or s.n_cols_dropped) else []),
-                        f"Calibration: the {SPA_PASS} PASS cut keeps the simulated false-pass rate at 3.5 to 5.3% "
+                        f"Calibration: the {SPA_PASS} PASS cut keeps the simulated false-pass rate at 3.3 to 5.2% "
                         "on 20 zero-edge variants (iid, correlated, fat-tailed, AR(1) 0.2; T = 1,000). It is "
                         "about 7% with strong autocorrelation (AR 0.5) or short samples (T = 250).",
                         "Method: Hansen (2005), A Test for Superior Predictive Ability, JBES 23(4).",
@@ -183,7 +187,8 @@ def run_audit(
                 )
             )
         except ValueError as e:
-            checks.append(Check("Selection bias (Hansen SPA)", SKIP, "not run", "needs >= 10 rows", [str(e)]))
+            checks.append(Check("Selection bias (Hansen SPA)", SKIP, "not run",
+                                "needs >= 10 complete rows and a variant missing <= 10% of periods", [str(e)]))
     else:
         checks.append(Check("Selection bias (Hansen SPA)", SKIP, "not run", "needs a trials matrix",
                             ["SPA resamples every variant's returns, so a count of variants is not enough."]))
