@@ -1,7 +1,5 @@
 # bt-audit: spec v0
 
-Working name. Owner picks the public name before the repo is created.
-
 ## Problem
 
 Hundreds of public trading-agent repos show a backtest and a headline Sharpe ratio. Almost none
@@ -26,7 +24,7 @@ evidence the backtest contains.
 - `returns.csv` (required): a date column plus one column of per-period strategy returns
   (simple returns, net or gross). Optional extra columns = other trials the author tried.
 - `--trials trials.csv` (optional): per-period returns of every variant tested (T rows x N
-  columns). Enables PBO and the trial-adjusted Sharpe.
+  columns). Enables PBO, the trial-adjusted Sharpe and the SPA test.
 - `--n-trials N` (optional): number of variants tried when the matrix is not available.
 - `--turnover x` (optional): average fraction of the book traded per period. Enables cost
   stress.
@@ -40,6 +38,7 @@ evidence the backtest contains.
 | Sharpe significance | Probabilistic Sharpe Ratio (PSR) against SR*=0, skew and kurtosis adjusted | Bailey and Lopez de Prado (2012), "The Sharpe Ratio Efficient Frontier" |
 | Track-record length | Minimum Track Record Length (MinTRL) at 95% | same |
 | Selection bias | Deflated Sharpe Ratio (DSR): PSR against the expected maximum Sharpe of N zero-edge trials | Bailey and Lopez de Prado (2014), "The Deflated Sharpe Ratio" |
+| Selection bias, resampled | Hansen's Superior Predictive Ability test, SPA_c p-value (SPA_l, SPA_u and White's Reality Check also reported). Loss differential d_k,t = r_k,t against a zero-return benchmark; studentized; stationary bootstrap, 2,000 resamples, mean block n^(1/3), seed 7. The audited series is added to the trials if it is not already a column | Hansen (2005), "A Test for Superior Predictive Ability"; White (2000), "A Reality Check for Data Snooping" |
 | Overfitting | Probability of Backtest Overfitting (PBO) via Combinatorially Symmetric Cross-Validation, S=16 blocks | Bailey, Borwein, Lopez de Prado, Zhu (2015/2017), "The Probability of Backtest Overfitting" |
 | Costs | Sharpe at 0/5/10/20/50 bps per unit turnover; breakeven cost in bps | arithmetic |
 | Sizing | Stationary block bootstrap of returns (5,000 paths, block = sqrt(T)); max-drawdown distribution and P(drawdown >= 50%) at leverage 1x/2x/3x | Politis and Romano (1994) |
@@ -51,6 +50,7 @@ Each check gets PASS / WARN / FAIL. Thresholds are stated in the report next to 
 
 - PSR >= 0.95 PASS, 0.80 to 0.95 WARN, else FAIL.
 - DSR (needs N) same thresholds as PSR.
+- SPA (needs a trials matrix with N >= 2): SPA_c p <= 0.05 PASS, <= 0.20 WARN, else FAIL.
 - PBO <= 0.25 PASS, 0.25 to 0.50 WARN, > 0.50 FAIL.
 - Breakeven cost >= 20 bps PASS, 5 to 20 WARN, < 5 FAIL.
 - P(drawdown >= 50%) at 1x <= 5% PASS, 5 to 20% WARN, > 20% FAIL.
@@ -70,5 +70,5 @@ the audit exists to catch.
    and the cherry-picked winner gets an overall FAIL.
 2. A planted true edge (per-period SR 0.15, T=1,000, one of N=50 trials): PBO under 0.1 on
    average over seeds.
-3. Formulas behave correctly under simulated nulls (PSR size 5%, expected max Sharpe within 5% of brute force, Deflated Sharpe false-pass rate <= 5% at correlation 0, 0.5, 0.9).
+3. Formulas behave correctly under simulated nulls (PSR size 5%, expected max Sharpe within 5% of brute force, Deflated Sharpe false-pass rate <= 5% at correlation 0, 0.5, 0.9, SPA rejection rate <= 8% at 5% on 20 zero-edge variants at correlation 0 and 0.5, SPA power >= 90% for one per-period Sharpe 0.12 among 10 at T = 2,000, SPA_c p-value <= the Reality Check's when most variants are clearly losing).
 4. Runs end to end on real data (125 years of S&P 500 timing variants) and real code (lookahead scan of public trading repos, with a labelled benchmark).

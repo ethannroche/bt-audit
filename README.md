@@ -3,13 +3,14 @@
 Grades a trading backtest on one question: **would this return survive real money?**
 
 Most public trading bots publish a backtest and a Sharpe ratio. Almost none correct for the things
-that usually make that number fake. bt-audit checks six of them and prints a report card with
+that usually make that number fake. bt-audit runs seven checks for them and prints a report card with
 the rule behind every grade.
 
 | Check | What it catches | Method |
 |---|---|---|
 | Sharpe significance | a track record too short or too fat-tailed to tell from luck | Probabilistic Sharpe Ratio, Minimum Track Record Length |
 | Selection bias | "I tried 60 versions and published the best one" | Deflated Sharpe Ratio, adjusted for how correlated the variants are |
+| Selection bias, resampled | the same, without assuming normal returns or a correlation summary | Hansen's SPA test (stationary bootstrap), with White's Reality Check alongside |
 | Overfitting | an in-sample winner that does not stay a winner | Probability of Backtest Overfitting (CSCV, 12,870 splits) |
 | Costs | an edge that fees and slippage eat | Sharpe by cost, breakeven cost in bps |
 | Sizing | leverage that turns a good average into ruin | stationary block bootstrap of drawdowns at 1x/2x/3x |
@@ -37,7 +38,7 @@ drops into CI.
   id: audit
   with:
     returns: results/returns.csv
-    trials: results/all_variants.csv   # enables the Deflated Sharpe and PBO
+    trials: results/all_variants.csv   # enables the Deflated Sharpe, PBO and SPA
     turnover: "0.3"
     fail-on: FAIL   # or WARN, or NONE to report only
 ```
@@ -46,7 +47,8 @@ The report card lands in the job summary; the job fails at the grade you choose,
 `steps.audit.outputs.grade-code` carries 0/1/2. Other inputs: `n-trials` (count of variants when
 you have no trials CSV), `equity`, `active`, `column`, `periods-per-year`, `repo-path`. The
 repo's own CI runs the action on 20 noise variants: the cherry-picked one passes the naive
-Sharpe test (PSR 0.976) and fails the Deflated Sharpe (0.533).
+Sharpe test (PSR 0.976) and fails the Deflated Sharpe (0.533) and
+the SPA test (p 0.283).
 
 ## Real results
 
@@ -78,7 +80,16 @@ held-out score.
 Against simulation, not remembered examples: the PSR test rejects at 5% under a true null; the
 closed-form expected maximum Sharpe matches brute force within 5%; PBO sits near 0.5 on pure
 noise and near 0 when one variant carries a real edge; the mean-correlation estimate recovers a
-planted 0.5. An independent review checked every formula against the papers; its one real finding (an anti-conservative Deflated Sharpe on correlated variants) is fixed and pinned by a regression test. `pytest` runs all of it (33 tests), and CI also runs the GitHub Action end to end.
+planted 0.5. An independent review checked every formula against the papers; its one real finding (an anti-conservative Deflated Sharpe on correlated variants) is fixed and pinned by a regression test.
+
+The SPA test is checked the same way, with 300 bootstrap resamples per p-value in tests (the
+report uses 2,000). On 20 zero-edge variants (T = 1,000, 400 runs) it rejects at 5% in 5.5% of
+runs when the variants are independent and 4.3% when they are correlated at 0.5. One variant with a
+per-period Sharpe of 0.12 among 10 (T = 2,000) is found in 60 of 60 runs. With one modest winner
+among 29 clearly losing variants, SPA_c rejects in 82% of runs and White's Reality Check in 48%,
+which is the failure SPA was designed to fix. Removing the studentization, the recentring, or the
+SPA_c trimming each makes a test fail. `pytest` runs all of it (43 tests, about 70 seconds), and CI
+also runs the GitHub Action end to end.
 
 ## Known limits
 
@@ -89,6 +100,10 @@ planted 0.5. An independent review checked every formula against the papers; its
   correlations 0, 0.5 and 0.9 (tested). This deviates from the paper and the report says so.
 - Lookahead findings are static pattern matches: "look here", never "proven". Test files and
   test folders are skipped.
+- SPA tests whether any variant beats a zero return. A low p-value does not say the audited
+  column is the variant that does. Its mean block length is the cube root of the sample, a fixed
+  rule; the square-root rule used for sizing made it reject about 10% of the time at a 5% level on
+  independent noise.
 - The bootstrap compounds simple returns and ignores financing, so leveraged rows are optimistic.
 - Power: a real per-period Sharpe of 0.12 (about 1.9 annualised on daily data), hidden among
   10 variants, clears the deflated test in 40 of 40 simulated runs at 2,000 periods.
@@ -109,6 +124,8 @@ planted 0.5. An independent review checked every formula against the papers; its
 - Bailey, D. H. and Lopez de Prado, M. (2012). The Sharpe Ratio Efficient Frontier. *Journal of Risk* 15(2).
 - Bailey, D. H. and Lopez de Prado, M. (2014). The Deflated Sharpe Ratio. *Journal of Portfolio Management* 40(5).
 - Bailey, D. H., Borwein, J., Lopez de Prado, M. and Zhu, Q. J. (2017). The Probability of Backtest Overfitting. *Journal of Computational Finance* 20(4).
+- Hansen, P. R. (2005). A Test for Superior Predictive Ability. *Journal of Business & Economic Statistics* 23(4).
 - Politis, D. N. and Romano, J. P. (1994). The Stationary Bootstrap. *JASA* 89(428).
+- White, H. (2000). A Reality Check for Data Snooping. *Econometrica* 68(5).
 
 MIT licensed.

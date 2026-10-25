@@ -9,6 +9,7 @@ from dataclasses import dataclass, field
 import numpy as np
 
 from . import pbo as pbo_mod
+from . import spa as spa_mod
 from . import stats, stress
 from .lookahead import Finding
 
@@ -32,6 +33,7 @@ class Audit:
     periods_per_year: int
     sharpe_annual: float
     lookahead: list[Finding]
+    spa: dict | None = None  # Hansen SPA numbers when a trials matrix was given
 
     @property
     def grade(self) -> str:
@@ -136,6 +138,46 @@ def run_audit(
         checks.append(Check("Overfitting (PBO, CSCV)", SKIP, "not run", "needs a trials matrix",
                             ["Export the returns of every variant tested to measure overfitting directly."]))
 
+    spa_numbers = None
+    if trials is not None and trials.shape[1] >= 2:
+        universe, note = _spa_universe(returns, trials)
+        try:
+            s = spa_mod.spa(universe, n_boot=SPA_BOOT, seed=SPA_SEED)
+            spa_numbers = {
+                "p_consistent": s.p_consistent, "p_lower": s.p_lower, "p_upper": s.p_upper,
+                "p_reality_check": s.p_reality_check, "statistic": s.statistic,
+                "n_variants": s.n_variants, "n_periods": s.n_periods, "n_boot": s.n_boot,
+                "mean_block": s.mean_block, "seed": SPA_SEED,
+            }
+            checks.append(
+                Check(
+                    "Selection bias (Hansen SPA)",
+                    _band(s.p_consistent, 0.05, 0.20, higher_is_better=False),
+                    f"p = {s.p_consistent:.3f} for 'none of the {s.n_variants} variants beats a zero return'",
+                    "PASS p <= 0.05, WARN p <= 0.20 (SPA_c p-value)",
+                    [
+                        "Null: no variant has a positive expected return. Loss differential per period "
+                        "d_k,t = r_k,t (the benchmark is a zero return and loss is the negative return); "
+                        "with --active input a zero active return already means matching the benchmark.",
+                        f"SPA_c {s.p_consistent:.3f} (graded), SPA_l {s.p_lower:.3f}, SPA_u {s.p_upper:.3f}; "
+                        f"White's Reality Check {s.p_reality_check:.3f}.",
+                        f"Studentized statistic {s.statistic:.2f}. SPA_c leaves {s.n_dropped_by_consistent} "
+                        "clearly losing variants out of the null, so they cannot dilute a real winner.",
+                        f"Stationary bootstrap, {s.n_boot:,} resamples, mean block {s.mean_block:.1f} periods "
+                        f"(cube root of the sample; a fixed rule, not tuned), seed {SPA_SEED}.",
+                        "A rejection says at least one variant beats zero after the search. It does not "
+                        "say the audited column is that variant.",
+                        *([note] if note else []),
+                        "Method: Hansen (2005), A Test for Superior Predictive Ability, JBES 23(4).",
+                    ],
+                )
+            )
+        except ValueError as e:
+            checks.append(Check("Selection bias (Hansen SPA)", SKIP, "not run", "needs >= 10 rows", [str(e)]))
+    else:
+        checks.append(Check("Selection bias (Hansen SPA)", SKIP, "not run", "needs a trials matrix",
+                            ["SPA resamples every variant's returns, so a count of variants is not enough."]))
+
     if turnover:
         c = stress.cost_stress(returns, turnover, periods_per_year)
         grid = ", ".join(f"{b:g} bps: {s:.2f}" for b, s in zip(c.bps_grid, c.sharpe_annual))
@@ -192,7 +234,26 @@ def run_audit(
             )
         )
 
-    return Audit(checks, m.n, periods_per_year, sr_ann, lookahead or [])
+    return Audit(checks, m.n, periods_per_year, sr_ann, lookahead or [], spa_numbers)
+
+
+SPA_BOOT = 2000
+SPA_SEED = 7
+
+
+def _spa_universe(returns: np.ndarray, trials: np.ndarray) -> tuple[np.ndarray, str]:
+    """The variants SPA searches over: the trials matrix, plus the audited series when it is not
+    already one of the columns (the search must include the strategy being graded)."""
+    r = np.asarray(returns, dtype=float)
+    m = np.asarray(trials, dtype=float)
+    if m.shape[0] != r.shape[0]:
+        return m, ("The audited series has a different length from the trials matrix, so SPA ran "
+                   "on the trials alone.")
+    for j in range(m.shape[1]):
+        ok = np.isfinite(r) & np.isfinite(m[:, j])
+        if np.array_equal(np.isfinite(r), np.isfinite(m[:, j])) and np.allclose(r[ok], m[ok, j]):
+            return m, ""
+    return np.column_stack([r, m]), "The audited series was not among the trials, so it was added to them."
 
 
 def to_markdown(a: Audit, title: str = "Backtest audit") -> str:
@@ -221,6 +282,7 @@ def to_dict(a: Audit) -> dict:
             {"name": c.name, "verdict": c.verdict, "result": c.result, "rule": c.rule, "detail": c.detail}
             for c in a.checks
         ],
+        "spa": a.spa,
         "lookahead": [
             {"file": f.file, "line": f.line, "rule": f.rule, "confidence": f.confidence, "reason": f.reason}
             for f in a.lookahead
